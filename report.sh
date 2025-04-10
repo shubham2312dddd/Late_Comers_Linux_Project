@@ -22,13 +22,13 @@ LAST_30_DAYS=$(date -d "30 days ago" '+%Y-%m-%d')
 # Generate report based on user selection
 case $CHOICE in
     1)  # Daily Report
-        REPORT=$(grep "$TODAY" "$LOG_FILE")
+        REPORT=$(awk -F ' *\\| *' -v today="$TODAY" '$4 ~ today' "$LOG_FILE")
         ;;
     2)  # Weekly Report
-        REPORT=$(awk -v start="$LAST_7_DAYS" -v end="$TODAY" -F " | " '$3 >= start && $3 <= end' "$LOG_FILE")
+        REPORT=$(awk -F ' *\\| *' -v start="$LAST_7_DAYS" -v end="$TODAY" '$4 >= start && $4 <= end' "$LOG_FILE")
         ;;
     3)  # Monthly Report
-        REPORT=$(awk -v start="$LAST_30_DAYS" -v end="$TODAY" -F " | " '$3 >= start && $3 <= end' "$LOG_FILE")
+        REPORT=$(awk -F ' *\\| *' -v start="$LAST_30_DAYS" -v end="$TODAY" '$4 >= start && $4 <= end' "$LOG_FILE")
         ;;
     *)
         dialog --title "⚠ Invalid Selection" --msgbox "Please choose a valid option!" 6 40
@@ -40,13 +40,15 @@ esac
 if [ -z "$REPORT" ]; then
     dialog --title "📊 Report" --msgbox "No records found for the selected period!" 8 50
 else
-    FORMATTED_REPORT=$(echo -e "========================================\n  🏫 Latecomers Report\n========================================\nName             | Date       | Reason\n----------------------------------------")
+    FORMATTED_REPORT="========================================\n  🏫 Latecomers Report\n========================================\nID        | Name            | Date-Time          | Reason\n--------------------------------------------------------------------------------"
     
-    while IFS="|" read -r name date reason; do
-        FORMATTED_REPORT+=$(printf "\n%-16s | %-10s | %-30s" "$name" "$date" "$reason")
+    while IFS="|" read -r id name class date_time reason; do
+        FORMATTED_REPORT+=$(printf "\n%-8s | %-15s | %-19s | %-30s" "$id" "$name" "$date_time" "$reason")
     done <<< "$REPORT"
 
-    dialog --title "📊 Latecomers Report" --msgbox "$FORMATTED_REPORT" 20 80
+    echo -e "$FORMATTED_REPORT" > temp_report.txt
+    dialog --title "📊 Latecomers Report" --textbox temp_report.txt 20 80
+    rm temp_report.txt
 fi
 
 clear
