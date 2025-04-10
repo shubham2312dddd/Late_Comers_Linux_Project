@@ -1,7 +1,9 @@
 #!/bin/bash
 
+# File paths
 LOG_FILE="data/late_log.txt"
 WARN_FILE="data/warnings.txt"
+STUDENT_CSV="data/students.csv"
 mkdir -p data  # Ensure the data directory exists
 touch "$LOG_FILE" "$WARN_FILE"  # Ensure log & warning files exist
 
@@ -57,7 +59,6 @@ check_warnings() {
     > "$WARN_FILE"  # Clear previous warnings
     LAST_7_DAYS=$(date -d "7 days ago" '+%Y-%m-%d')
 
-    # Correct field separator and field extraction
     awk -F ' *\\| *' -v start="$LAST_7_DAYS" '$3 >= start {print $1 "|" $2}' "$LOG_FILE" | sort | uniq -c | while read count entry; do
         student_id=$(echo "$entry" | cut -d '|' -f1 | xargs)
         student_name=$(echo "$entry" | cut -d '|' -f2 | xargs)
@@ -70,19 +71,31 @@ check_warnings() {
     dialog --title "⚠️ Warning System" --msgbox "Warnings updated successfully!" 6 40
 }
 
+# Function to send email (calls notify.sh)
+send_email() {
+    if [[ ! -f "$STUDENT_CSV" ]]; then
+        dialog --title "❌ Error" --msgbox "Missing students.csv file! Cannot send emails." 6 50
+        return
+    fi
+
+    bash notify.sh
+}
+
 # Main menu
 while true; do
-    CHOICE=$(dialog --title "📌 Class Latecomers Management" --menu "Choose an option:" 15 50 5 \
+    CHOICE=$(dialog --title "📌 Class Latecomers Management" --menu "Choose an option:" 15 50 6 \
         1 "📝 Log Latecomer Entry" \
         2 "📊 Generate Report" \
         3 "⚠️ Check Warnings" \
-        4 "🚪 Exit" 3>&1 1>&2 2>&3)
+        4 "📧 Send Email Notifications" \
+        5 "🚪 Exit" 3>&1 1>&2 2>&3)
 
     case $CHOICE in
         1) log_late_entry ;;
         2) generate_report ;;
         3) check_warnings ;;
-        4) clear; exit ;;
+        4) send_email ;;  # Calls notify.sh
+        5) clear; exit ;;
         *) dialog --title "❌ Invalid" --msgbox "Invalid option! Please select again." 6 40 ;;
     esac
 done
